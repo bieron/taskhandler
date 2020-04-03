@@ -1,0 +1,43 @@
+register:
+    # run in shell and register stdout lines in array under given name
+    # allows tasks to reference registered variables
+    apples: echo 'one\ntwo\nthree'
+    oranges: seq 10
+tasks:
+  - name: 'offline-{item}' # tasks with iterate_var must interpolate item in their args and name (but name can be omitted)
+    args: 'bin/mysql_migrate --offline -n {item}'
+    # unfold task into one task per element of "apples" variable
+    # which needs to be an array defined until validation
+    iterate_var: apples
+
+  - args: 'bin/mysql_migrate data/update/main/one.sql -n {item}'
+    iterate_var: apples
+    deps: ['offline-{item}']
+
+  - name: 'two-{item}'
+    args: 'bin/mysql_migrate data/update/main/two.sql -n {item}'
+    iterate_var: apples
+    deps: ['offline-{item}']
+
+  - name: 'triggers {item}'
+    args: 'bin/mysql_migrate --triggers -n {item}'
+    iterate_var: apples
+    deps: ['offline-{item}', 'two-{item}']
+
+  - name: 'bdsm-{item}'
+    args: 'bin/mysql_migrate data/update/bsqm.sql -b {item}'
+    iterate_var: oranges
+
+  - name: webaux
+    args: bin/mysql_migrate data/update/web_aux/web_aux.sql -d web_aux
+    # unfold dependencies for each element of apples and oranges, respectively
+    deps: ['apple-{dep}|apples', 'orange-{dep}|oranges']
+
+  - args: 'bin/mysql_migrate data/update/scripts_to_run/foo -n {item}'
+    iterate_var: apples
+    deps: ['apple-{dep}|apples', 'foo', 'pie-{dep}|apples']
+
+  - args: 'bin/mysql_migrate --online -n {item}'
+    iterate_var: apples
+    # final task runs after all nonfinal tasks, and cannot be a dependency for another task
+    final: True

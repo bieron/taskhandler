@@ -1,0 +1,15 @@
+register:
+    nodes: 'echo -e "1\n2\n3"'
+tasks:
+  - name: 'success-{item}'
+    args: 'echo before failure with item {item}'
+    iterate_var: nodes
+
+  - name: 'failure-{item}'
+    args: 'false'
+    deps: ['success-{dep}|nodes']
+    iterate_var: nodes
+
+  - args: 'echo after failure with item {item}'
+    iterate_var: nodes
+    deps: ['failure-{dep}|nodes']

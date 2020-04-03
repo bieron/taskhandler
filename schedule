@@ -1,0 +1,105 @@
+#!/usr/bin/env python
+import argparse
+import json
+import logging
+import os
+import sys
+import yaml
+
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), "lib"))
+from taskhandler import Scheduler
+
+def handle_input():
+    p = argparse.ArgumentParser(
+        description='Task scheduler with parallelity and interdependency')
+    p.add_argument('-i', '--input', nargs='?', type=argparse.FileType('r'),
+        default=sys.stdin, help='Path to schedule file or STDIN if empty. Format is either YAML or JSON.')
+
+    p.add_argument('-o', '--output', help="Path to output schedule file")
+
+    p.add_argument('-l', '--logdir', default='/tmp',
+        help="Directory for task output")
+    p.add_argument('-n', '--dry', action='store_true',
+        help="Do not actually run, just validate tasks")
+    p.add_argument('-v', '--verbose', action='store_true',
+        help="Print failed tasks' stderrs to stdout")
+    p.add_argument('-t', '--threads', type=int, default=30,
+        help="Threadpool size, default 30")
+    p.add_argument('--chdir', '--cd', help='Change working directory')
+
+    ex = p.add_mutually_exclusive_group()
+    ex.add_argument('-q', '--quiet', dest='loglevel', action="store_const",
+        const=logging.WARNING, help='Notify only on warnings and errors (be quiet).')
+    ex.add_argument('-d', '--debug', dest='loglevel', action="store_const",
+        const=logging.DEBUG, help='Provide even more detailed log on actions performed.')
+    return p.parse_args()
+
+def main(args):
+    lh = logging.StreamHandler()
+    lh.setFormatter(logging.Formatter('%(asctime)-12s %(message)s', '%Y-%m-%d %H:%M:%S'))
+    logger = logging.getLogger('schedule')
+    logger.addHandler(lh)
+    logger.setLevel(args.loglevel or logging.INFO)
+
+    if not args.output:
+        args.output = os.getcwd() + '/schedule.yml'
+
+    if args.chdir:
+        os.chdir(args.chdir)
+
+    if args.dry:
+        logger.info("Dry run")
+
+    if args.input == sys.stdin:
+        logger.info("Reading from standard input...")
+    data = args.input.read()
+
+    if not data:
+        return 0
+    try:
+        data = json.loads(data)
+    except json.decoder.JSONDecodeError:
+        data = yaml.load(data)
+    if not isinstance(data, dict):
+        logger.error("Invalid input")
+        return 1
+    if not data:
+        return 0
+
+    try:
+        os.makedirs(args.logdir)
+    except FileExistsError:
+        pass
+
+    s = Scheduler(
+        data['tasks'], register=data.get('register', None),
+        logdir=args.logdir, logger=logger)
+
+    if args.dry:
+        return 0
+
+    logger.info('Schedule start')
+    s.execute(args.threads)
+    logger.info('Schedule end')
+
+    failures = s.failures()
+    if failures:
+        logger.warning('%d tasks failed: %s', len(failures), failures)
+        logger.warning('Summary:\n' + s.summary())
+    else:
+        logger.info('Summary:\n' + s.summary())
+
+    if args.verbose:
+        for path in s.failed_stderrs():
+            with open(path) as f:
+                print(f"\n{path}:\n{f.read()}")
+
+    return bool(failures)
+
+def save_schedule(data, path):
+    with open(path, 'w') as f:
+        f.write(
+            yaml.dump(data, default_flow_style=False)
+            .replace('\n-', '\n\n-'))# separate tasks with newline for readability
+
+sys.exit(main(handle_input()))
