@@ -1,15 +1,14 @@
 import os
 import sys
-import yaml
 import pytest
 from logging import getLogger
 from stat import S_IWUSR
 from time import time
 
 dirname = os.path.dirname(__file__)
-
 sys.path.insert(0, os.path.join(dirname, '../lib'))
 from taskhandler import Scheduler, TaskInitError, Task, human_interval
+from util import loadSchedule
 
 log = getLogger()
 log.setLevel(100)
@@ -189,7 +188,7 @@ def test_schedule_fail(tmpdir, mocker):
     mocker.patch('os.access', return_value=True)
 
     with open(f'{dirname}/failure.yml') as f:
-        data = yaml.load(f)
+        data = loadSchedule(f)
     s = wrap_schedule(data['tasks'], tmpdir, data['register'])
     s.execute(8)
     assert s.failures()
@@ -200,7 +199,7 @@ def test_schedule_script(tmpdir, mocker):
     mocker.patch('taskhandler.Task.run', new=mock_task_run)
 
     with open(f'{dirname}/schedule.yml') as f:
-        data = yaml.load(f)
+        data = loadSchedule(f)
     s = wrap_schedule(data['tasks'], tmpdir, data['register'])
     s.execute(8)
     assert not s.failures()

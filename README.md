@@ -6,7 +6,7 @@ NAME
 
 DESCRIPTION
     schedule runs tasks in order specified in a schedule file.
-    Schedule can be given as a file or read from STDIN.
+    Schedule can be given as a file path or read from STDIN.
 
     It executes tasks locally, saving their stdouts and stderrs to --logdir.
 
@@ -16,7 +16,7 @@ DESCRIPTION
 
 
 INPUT FORMAT
-    Accepted formats are YAML and JSON. Examples will use YAML given its superior readability.
+    Accepted format is YAML.
     Schedule must be a dictionary with an obligatory key 'tasks', which must be a list.
     Each task is a dictionary.
 
@@ -62,10 +62,12 @@ It increases readability and can help you avoid incorrect order of task executio
 
 
 # run tasks defined in given schedule
-    schedule -i schedule.yml
+    ./schedule -i t/simple.yml
 
 # can also read from standard input
-    schedule < schedule.json
+    ./schedule < t/simple.yml
+
+INSTALLATION
 
 1. Install pyenv
 
@@ -78,11 +80,19 @@ It increases readability and can help you avoid incorrect order of task executio
 
 2. Install required python version
 ```sh
-    pyenv install 3.6.4
+    pyenv install 3.6.4 # or newer
 ```
 
 3. Install required pyenv modules
 ```sh
     cd taskhandler/
     pip install -r requirements.txt
+```
+
+TESTING
+
+```sh
+    cd taskhandler/
+    pip install pytest pytest-mock
+    python3 -mpytest
 ```

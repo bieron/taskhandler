@@ -1,0 +1,5 @@
+tasks:
+  - args: echo hello world {item}
+    iterate_var: numbers
+register:
+  numbers: seq 1 10
